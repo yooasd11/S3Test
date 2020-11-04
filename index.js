@@ -1,20 +1,33 @@
 const AWS = require('aws-sdk');
 const fs = require('fs');
 
-AWS.config.update({ region: 'ap-northeast-2' });
-
-// Create S3 service object
-const s3 = new AWS.S3({apiVersion: '2006-03-01'});
-
+const sts = new AWS.STS({ region: 'ap-northeast-2', apiVersion: '2011-06-15' });
 
 async function main() {
+    const roleToAssume = {
+        RoleArn: 'arn:aws:iam::214348340191:role/ec2_s3_full',
+        RoleSessionName: 'session1',
+        DurationSeconds: 900,
+    };
 
-    const bucketsResult = await s3.listBuckets().promise();
+    const roleResult = await sts.assumeRole(roleToAssume).promise();
+    console.log('credential result : ', roleResult.Credentials);
+    const { AccessKeyId, SecretAccessKey, SessionToken } = roleResult.Credentials;
 
-    const firstBucket = bucketsResult.Buckets[0];
-    // call S3 to retrieve upload file to specified bucket
+    const s3 = new AWS.S3({
+        apiVersion: '2006-03-01',
+        region: 'ap-northeast-2',
+        credentials: { 
+            accessKeyId: AccessKeyId,
+            secretAccessKey: SecretAccessKey,
+            sessionToken: SessionToken,
+        },
+    });
     
-    // Configure the file stream and obtain the upload parameters
+    const bucketsResult = await s3.listBuckets().promise();
+    const firstBucket = bucketsResult.Buckets[0];
+    console.log('bucket : ', firstBucket);
+    
     const filename = 'input.txt';
     const fileStream = fs.readFileSync(filename);
 
